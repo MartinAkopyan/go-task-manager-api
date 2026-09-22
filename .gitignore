@@ -8,3 +8,4 @@ pgdata/
 .vscode/
 .DS_Store
 CLAUDE.md
+go-task-manager-api
