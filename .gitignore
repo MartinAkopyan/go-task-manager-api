@@ -1,0 +1,10 @@
+/main
+/task-api
+/docs
+*.exe
+.env
+pgdata/
+.idea/
+.vscode/
+.DS_Store
+CLAUDE.md
