@@ -41,6 +41,19 @@ func (t TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(body)
 }
 
+func (t TaskHandler) List(w http.ResponseWriter, r *http.Request) {
+
+	tasks, err := GetTasks(r.Context(), t.db)
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
+
 func CreateTask(ctx context.Context, db *pgxpool.Pool, title string) (int, error) {
 	var id int
 
@@ -55,6 +68,35 @@ func CreateTask(ctx context.Context, db *pgxpool.Pool, title string) (int, error
 	}
 
 	return id, nil
+}
+
+func GetTasks(ctx context.Context, db *pgxpool.Pool) ([]Task, error) {
+	tasks := []Task{}
+
+	rows, err := db.Query(ctx, "SELECT id, title, done FROM tasks;")
+
+	
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var t Task
+
+		if err := rows.Scan(&t.ID, &t.Title, &t.Done); err != nil {
+			return nil, err
+		}
+
+		tasks = append(tasks, t)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
 }
 
 // claude --resume 8e6cf020-253b-486b-8644-60c29d93ca82
