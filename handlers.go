@@ -18,6 +18,11 @@ type TaskHandler struct {
 	db *pgxpool.Pool
 }
 
+type UpdateTaskInput struct {
+	Title *string `json:"title"`
+	Done *bool `json:"done"`
+}
+
 func (t TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var body Task
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -81,6 +86,35 @@ func (t TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
+func (t TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+	strTaskID := chi.URLParam(r, "id")
+	taskID, err := strconv.Atoi(strTaskID)
+
+	if  err != nil {
+		http.Error(w, "Invalid task id: must be integer", http.StatusBadRequest)
+		return
+	}
+
+	var input UpdateTaskInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	task, err := UpdateTaskByID(r.Context(), t.db, taskID, input)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, "task not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(task)
+}
+
 func CreateTask(ctx context.Context, db *pgxpool.Pool, title string) (int, error) {
 	var id int
 
@@ -131,6 +165,23 @@ func GetTaskByID(ctx context.Context, db *pgxpool.Pool, id int) (*Task, error) {
 	var t Task
 
 	row := db.QueryRow(ctx, "SELECT id, title, done FROM tasks WHERE id = $1", id)
+
+	if err := row.Scan(&t.ID, &t.Title, &t.Done); err != nil {
+		return nil, err
+	}
+
+	return &t, nil
+}
+
+func UpdateTaskByID(ctx context.Context, db *pgxpool.Pool, id int, input UpdateTaskInput) (*Task, error) {
+	var t Task
+
+	row := db.QueryRow(ctx, `
+		UPDATE tasks 
+		SET title = COALESCE($1, title),
+			done = COALESCE($2, done)
+		WHERE id = $3
+		RETURNING id, title, done`, input.Title, input.Done, id)
 
 	if err := row.Scan(&t.ID, &t.Title, &t.Done); err != nil {
 		return nil, err

@@ -34,6 +34,7 @@ func main() {
 	r.Post("/tasks", tHandler.Create)
 	r.Get("/tasks", tHandler.ListTasks)
 	r.Get("/tasks/{id}", tHandler.GetTask)
+	r.Patch("/tasks/{id}", tHandler.UpdateTask)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
