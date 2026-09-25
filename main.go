@@ -14,18 +14,12 @@ import (
 
 func main() {
 	ctx := context.Background()
-	r := chi.NewRouter()
-
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	r := chi.NewRouter()
+
 
 	srv := &http.Server{Addr: ":" + os.Getenv("PORT"), Handler: r}
-
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server failed: %v", err)
-		}
-	}()
 
 	pool, err := DBPool(ctx)
 
@@ -34,6 +28,17 @@ func main() {
 	}
 
 	log.Println("Succesfull connection")
+
+	tHandler := TaskHandler{db: pool}
+
+	r.Post("/tasks", tHandler.Create)
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server failed: %v", err)
+		}
+	}()
+
 
 	<-signalChan
 	log.Println("shutting down...")
