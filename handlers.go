@@ -14,6 +14,7 @@ import (
 )
 
 var ErrEmptyTitle = errors.New("title field is required")
+var ErrTaskIDNotFound = errors.New("task id not found")
 type TaskHandler struct {
 	db *pgxpool.Pool
 }
@@ -115,6 +116,28 @@ func (t TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(task)
 }
 
+func (t TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
+	strTaskID := chi.URLParam(r, "id")
+	taskID, err := strconv.Atoi(strTaskID)
+
+	if err != nil {
+		http.Error(w, "invalid task ID: must be int", http.StatusBadRequest)
+		return
+	}
+
+	err = DeleteTask(r.Context(), t.db, taskID)
+
+	if errors.Is(err, ErrTaskIDNotFound) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func CreateTask(ctx context.Context, db *pgxpool.Pool, title string) (int, error) {
 	var id int
 
@@ -190,4 +213,18 @@ func UpdateTaskByID(ctx context.Context, db *pgxpool.Pool, id int, input UpdateT
 	return &t, nil
 }
 
+
+func DeleteTask(ctx context.Context, db *pgxpool.Pool, id int) error {
+	tag, err := db.Exec(ctx, "DELETE FROM tasks WHERE id = $1", id)
+
+	if err != nil {
+		return err
+	}
+
+	if tag.RowsAffected() == 0 {
+		return ErrTaskIDNotFound
+	}
+
+	return nil
+}
 // claude --resume 8e6cf020-253b-486b-8644-60c29d93ca82
