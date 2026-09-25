@@ -32,7 +32,8 @@ func main() {
 	tHandler := TaskHandler{db: pool}
 
 	r.Post("/tasks", tHandler.Create)
-	r.Get("/tasks", tHandler.List)
+	r.Get("/tasks", tHandler.ListTasks)
+	r.Get("/tasks/{id}", tHandler.GetTask)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {

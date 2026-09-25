@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -41,7 +44,7 @@ func (t TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(body)
 }
 
-func (t TaskHandler) List(w http.ResponseWriter, r *http.Request) {
+func (t TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 
 	tasks, err := GetTasks(r.Context(), t.db)
 
@@ -52,6 +55,30 @@ func (t TaskHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
+}
+
+func (t TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
+	strTaskID := chi.URLParam(r, "id")
+
+	taskID, err := strconv.Atoi(strTaskID)
+
+	if err != nil {
+		http.Error(w, "Invalid task ID: must be an integer", http.StatusBadRequest)
+		return
+	}
+
+	task, err := GetTaskByID(r.Context(), t.db, taskID)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		http.Error(w, "task not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(task)
 }
 
 func CreateTask(ctx context.Context, db *pgxpool.Pool, title string) (int, error) {
@@ -97,6 +124,19 @@ func GetTasks(ctx context.Context, db *pgxpool.Pool) ([]Task, error) {
 	}
 
 	return tasks, nil
+}
+
+
+func GetTaskByID(ctx context.Context, db *pgxpool.Pool, id int) (*Task, error) {
+	var t Task
+
+	row := db.QueryRow(ctx, "SELECT id, title, done FROM tasks WHERE id = $1", id)
+
+	if err := row.Scan(&t.ID, &t.Title, &t.Done); err != nil {
+		return nil, err
+	}
+
+	return &t, nil
 }
 
 // claude --resume 8e6cf020-253b-486b-8644-60c29d93ca82
