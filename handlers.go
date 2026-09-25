@@ -29,17 +29,17 @@ func (t TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&body)
 
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
 	id, err := CreateTask(r.Context(), t.db, body.Title)
 
 	if errors.Is(err, ErrEmptyTitle) {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, ErrEmptyTitle.Error(), http.StatusBadRequest)
 		return
 	} else if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -55,7 +55,7 @@ func (t TaskHandler) ListTasks(w http.ResponseWriter, r *http.Request) {
 	tasks, err := GetTasks(r.Context(), t.db)
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
@@ -128,7 +128,7 @@ func (t TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	err = DeleteTask(r.Context(), t.db, taskID)
 
 	if errors.Is(err, ErrTaskIDNotFound) {
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, ErrTaskIDNotFound.Error(), http.StatusNotFound)
 		return
 	} else if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
